@@ -1,2 +1,2 @@
 # ESP32
-Run Meower on your ESP32 dev board
+Access Meower from the serial output on your ESP32 dev board
