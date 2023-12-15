@@ -34,7 +34,7 @@ By default, if the ESP32 cannot find the saved WiFi network after 15 seconds, it
 - [x] - Webhooks bridge support
 - [x] - Username changer*
 - [x] - Connecting to Meower via API
-- [ ] - Add a web dashboard to access Meower over LAN
+- [ ] - Add a web dashboard to access Meower over LAN*
 - [ ] - Logging in with a username and password
 - [ ] - ~~Displaying Images~~
 - [ ] - ~~Connecting to Meower via websockets~~
