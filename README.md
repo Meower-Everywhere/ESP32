@@ -44,3 +44,12 @@ By default, if the ESP32 cannot find the saved WiFi network after 15 seconds, it
 `*` | Feature is a platform-specific requirement
 
 ~~Item~~ | Feature is not feasible on this specific platform
+
+# Changelog
+## v1.0.1
+**Released 15 December 2023**
+- Increased ping delay to 1 second from 0.5 seconds to reduce ratelimiting errors
+
+## v1.0.0
+**Released 14 December 2023**
+- Initial Release
