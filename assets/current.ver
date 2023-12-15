@@ -1,3 +1,4 @@
 {
-  "version": "v1.0.1"
+  "stable": "v1.0.1"
+  "testing": "v1.1.1"
 }
