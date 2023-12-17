@@ -40,7 +40,7 @@ This client is **83%** complete as per the Meower Everywhere Feature Checklist (
 - [ ] - ~~Deleting Posts~~
 - [ ] - ~~Group Chats~~
 
-* Works partially or with workaround
+`*` Works partially or with workaround
 
 ~~Item~~ | Feature is not feasible on this specific platform
 
