@@ -27,28 +27,25 @@ To change your username, type username: followed by a space and the username you
 By default, if the ESP32 cannot find the saved WiFi network after 15 seconds, it will ask you for a different SSID and Password, however if you want to use a different WiFi network while the saved one is still available, type wifi into the serial monitor and press enter to restart the WiFi setup wizard.
 
 # Meower Everywhere Feature Checklist
+This client is **66%** complete as per the Meower Everywhere Feature Checklist (not including non-feasible features)
 - [x] - Viewing Posts
-- [x] - Making Posts
-- [x] - WiFi setup wizard*
+- [x] - Making Posts*
 - [x] - Discord & Revower bridge support
 - [x] - Webhooks bridge support
-- [x] - Username changer*
 - [x] - Connecting to Meower via API
 - [ ] - Logging in with a username and password
 - [ ] - ~~Displaying Images~~
 - [ ] - ~~Connecting to Meower via websockets~~
 - [ ] - ~~Editing Posts~~
 - [ ] - ~~Deleting Posts~~
+- [ ] - ~~Group Chats~~
 
-`*` | Feature is a platform-specific requirement
+* Works partially or with workaround
 
 ~~Item~~ | Feature is not feasible on this specific platform
 
-# Changelog
-## v1.0.1
-**Released 15 December 2023**
-- Increased ping delay to 1 second from 0.5 seconds to reduce ratelimiting errors
+# Additional Features 
+These features are not essential as per the Meower Everywhere feature checklist but are supported by this specific client
 
-## v1.0.0
-**Released 14 December 2023**
-- Initial Release
+- WiFi setup wizard
+- Webhooks username changer
