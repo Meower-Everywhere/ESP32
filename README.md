@@ -27,7 +27,7 @@ To change your username, type username: followed by a space and the username you
 By default, if the ESP32 cannot find the saved WiFi network after 15 seconds, it will ask you for a different SSID and Password, however if you want to use a different WiFi network while the saved one is still available, type wifi into the serial monitor and press enter to restart the WiFi setup wizard.
 
 # Meower Everywhere Feature Checklist
-This client is **66%** complete as per the Meower Everywhere Feature Checklist (not including non-feasible features)
+This client is **83%** complete as per the Meower Everywhere Feature Checklist (not including non-feasible features)
 - [x] - Viewing Posts
 - [x] - Making Posts*
 - [x] - Discord & Revower bridge support
