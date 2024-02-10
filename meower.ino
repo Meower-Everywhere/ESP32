@@ -2,11 +2,12 @@
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <Arduino.h>
 
 Preferences preferences;
 
 const char* meowerAPI = "https://api.meower.org/home?autoget=1&page=1";
-const char* version = "1.0.0";
+const char* version = "1.0.2";
 unsigned long lastTimestamp = 0;
 bool firstRun = true;
 
@@ -51,7 +52,7 @@ void loop() {
     }
   }
 
-  delay(500);
+  delay(1000);
 }
 
 void setUsername(const String& newUsername) {
@@ -176,30 +177,76 @@ void connectToWiFi(const String& ssid, const String& password) {
   }
 }
 
+char base64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+char base64_decode_char(char c) {
+  if (c >= 'A' && c <= 'Z') {
+    return c - 'A';
+  } else if (c >= 'a' && c <= 'z') {
+    return c - 'a' + 26;
+  } else if (c >= '0' && c <= '9') {
+    return c - '0' + 52;
+  } else if (c == '+') {
+    return 62;
+  } else if (c == '/') {
+    return 63;
+  } else {
+    return 0;
+  }
+}
+
+void base64_decode(const char* input, char* output) {
+  int len = strlen(input);
+  int i = 0;
+  int j = 0;
+
+  while (i < len) {
+    char a = base64_decode_char(input[i++]);
+    char b = base64_decode_char(input[i++]);
+    char c = base64_decode_char(input[i++]);
+    char d = base64_decode_char(input[i++]);
+
+    output[j++] = (a << 2) | (b >> 4);
+    output[j++] = (b << 4) | (c >> 2);
+    output[j++] = (c << 6) | d;
+  }
+
+  output[j] = '\0';
+}
+
 void sendPost(const String& content) {
   preferences.begin("meower", true); // Open "meower" namespace to retrieve the username
   String username = preferences.getString("username", "");
   preferences.end(); // Close the preferences after retrieving the username
 
   if (username != "" && content != "") {
-    // Prepare the JSON payload
     DynamicJsonDocument doc(1024);
-    doc["post"] = content;
-    doc["username"] = username;
+    doc["message"] = content;
+    doc["name"] = username;
     String requestBody;
     serializeJson(doc, requestBody);
 
-    // Send the POST request
     HTTPClient http;
-    http.begin("https://webhooks.meower.org/post/home");
+    String webhookUrl = "https://webhooks.meower.org/webhook/";
+    String id = "1fc2e472-0a27-42d7-a2cd-f2c00e79424e";
+    const char* encodedToken = "cDNxUEVBRE5JRzJoUjMweHdtU0EtY1hLRzJKdjFNTHJjTWhwbXhxakd5VQ==";
+    char token[44]; // Base64-encoded strings are always a multiple of 4, so the decoded string will be at most 3/4 the length of the encoded string
+    base64_decode(encodedToken, token);
+    String chatId = "home";
+    String postUrl = webhookUrl + id + "/" + token + "/" + chatId + "/post";
+    http.begin(postUrl);
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(requestBody);
 
-    if (httpResponseCode > 0) {
+    if (httpResponseCode == 200) { // Check specifically for 200 status code
       Serial.println("Post sent successfully!");
     } else {
-      Serial.print("Error sending post: ");
+      Serial.println("--------------------Error!--------------------");
+      Serial.print("Failed to send post! Error code was ");
       Serial.println(httpResponseCode);
+      Serial.print("HTTP response: ");
+      Serial.println(http.getString()); // Print the full HTTP response
+      Serial.println("----------------------------------------------");
     }
 
     http.end();
@@ -207,7 +254,6 @@ void sendPost(const String& content) {
     Serial.println("Username or content missing.");
   }
 }
-
 
 void fetchPosts() {
   if (WiFi.status() == WL_CONNECTED) {
