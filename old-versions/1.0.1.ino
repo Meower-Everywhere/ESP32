@@ -6,7 +6,7 @@
 Preferences preferences;
 
 const char* meowerAPI = "https://api.meower.org/home?autoget=1&page=1";
-const char* version = "1.0.0";
+const char* version = "1.0.1";
 unsigned long lastTimestamp = 0;
 bool firstRun = true;
 
