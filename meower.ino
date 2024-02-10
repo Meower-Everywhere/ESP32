@@ -2,14 +2,55 @@
 #include <HTTPClient.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <WebServer.h>
+#include <ctime>
 #include <Arduino.h>
 
 Preferences preferences;
+WebServer server(80);
 
 const char* meowerAPI = "https://api.meower.org/home?autoget=1&page=1";
-const char* version = "1.0.2";
+const char* version = "1.1.0";
 unsigned long lastTimestamp = 0;
 bool firstRun = true;
+
+char base64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+char decodedToken[44]; // Global variable to store the decoded token
+
+char base64_decode_char(char c) {
+  if (c >= 'A' && c <= 'Z') {
+    return c - 'A';
+  } else if (c >= 'a' && c <= 'z') {
+    return c - 'a' + 26;
+  } else if (c >= '0' && c <= '9') {
+    return c - '0' + 52;
+  } else if (c == '+') {
+    return 62;
+  } else if (c == '/') {
+    return 63;
+  } else {
+    return 0;
+  }
+}
+
+void base64_decode(const char* input, char* output) {
+  int len = strlen(input);
+  int i = 0;
+  int j = 0;
+
+  while (i < len) {
+    char a = base64_decode_char(input[i++]);
+    char b = base64_decode_char(input[i++]);
+    char c = base64_decode_char(input[i++]);
+    char d = base64_decode_char(input[i++]);
+
+    output[j++] = (a << 2) | (b >> 4);
+    output[j++] = (b << 4) | (c >> 2);
+    output[j++] = (c << 6) | d;
+  }
+
+  output[j] = '\0';
+}
 
 void setup() {
   Serial.begin(115200);
@@ -20,16 +61,25 @@ void setup() {
   Serial.println("--------------------------------------------------");
 
   initializeWiFi(); // Initialize WiFi connection
-  fetchPosts(); // Fetch posts after connecting to WiFi
+
+  const char* encodedToken = "cDNxUEVBRE5JRzJoUjMweHdtU0EtY1hLRzJKdjFNTHJjTWhwbXhxakd5VQ==";
+  base64_decode(encodedToken, decodedToken);
+
+  server.on("/", HTTP_GET, handleRoot);
+  server.on("/posts", HTTP_GET, handlePosts);
+  server.on("/post", HTTP_POST, handlePost);
+  server.begin();
 }
 
 void loop() {
+  server.handleClient();
+
   // Fetch new posts every second, if connected
   if (WiFi.status() == WL_CONNECTED) {
     fetchPosts();
   } else {
     Serial.println("WiFi not connected. Attempting to reconnect...");
-    initializeWiFi();
+    reconnectWiFi();
   }
 
   // Check for serial input to handle "wifi", "post: ", or "username: " commands
@@ -41,6 +91,7 @@ void loop() {
       // Clear existing credentials and restart WiFi setup
       preferences.begin("wifi", false);
       preferences.clear();
+      preferences.putString("configured", "false");  // Add this line to indicate that WiFi setup is needed
       preferences.end();
       initializeWiFi();
     } else if (input.startsWith("post: ")) {
@@ -72,13 +123,14 @@ void setUsername(const String& newUsername) {
 
 void initializeWiFi() {
   preferences.begin("wifi", false);
-  String ssid = preferences.getString("ssid", "");
-  String password = preferences.getString("password", "");
-  preferences.end(); // Close the Preferences before connecting
+  bool isConfigured = preferences.getBool("configured", false);
 
-  if (ssid == "" || password == "") {
+  if (!isConfigured) {
     askForWiFiCredentials();
   } else {
+    String ssid = preferences.getString("ssid", "");
+    String password = preferences.getString("password", "");
+    preferences.end(); // Close the Preferences before connecting
     connectToWiFi(ssid, password);
   }
 
@@ -90,7 +142,6 @@ void initializeWiFi() {
     askForUsername();
   }
 }
-
 
 void askForUsername() {
   Serial.println("Enter Username (must not be blank!):");
@@ -131,15 +182,11 @@ void askForWiFiCredentials() {
   password.trim(); // Remove any newline or whitespace
 
   // Save SSID and Password to preferences
+  preferences.begin("wifi", false);
   preferences.putString("ssid", ssid);
   preferences.putString("password", password);
   preferences.putBool("configured", true);
-
-  // Explicitly end the preferences to commit them to NVS
   preferences.end();
-
-  // Give some time for NVS to save the preferences
-  delay(500);
 
   Serial.println("WiFi credentials saved.");
 
@@ -169,49 +216,15 @@ void connectToWiFi(const String& ssid, const String& password) {
     Serial.println(ssid);
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
+    Serial.print("API Address: ");
+    Serial.print(WiFi.localIP());
+    Serial.println("/");
     Serial.println("--------------------------------------------------");
   } else {
     Serial.println(" connection failed!");
     WiFi.disconnect(); // Disconnect from the WiFi network
     askForWiFiCredentials(); // Ask for credentials again
   }
-}
-
-char base64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-char base64_decode_char(char c) {
-  if (c >= 'A' && c <= 'Z') {
-    return c - 'A';
-  } else if (c >= 'a' && c <= 'z') {
-    return c - 'a' + 26;
-  } else if (c >= '0' && c <= '9') {
-    return c - '0' + 52;
-  } else if (c == '+') {
-    return 62;
-  } else if (c == '/') {
-    return 63;
-  } else {
-    return 0;
-  }
-}
-
-void base64_decode(const char* input, char* output) {
-  int len = strlen(input);
-  int i = 0;
-  int j = 0;
-
-  while (i < len) {
-    char a = base64_decode_char(input[i++]);
-    char b = base64_decode_char(input[i++]);
-    char c = base64_decode_char(input[i++]);
-    char d = base64_decode_char(input[i++]);
-
-    output[j++] = (a << 2) | (b >> 4);
-    output[j++] = (b << 4) | (c >> 2);
-    output[j++] = (c << 6) | d;
-  }
-
-  output[j] = '\0';
 }
 
 void sendPost(const String& content) {
@@ -229,11 +242,8 @@ void sendPost(const String& content) {
     HTTPClient http;
     String webhookUrl = "https://webhooks.meower.org/webhook/";
     String id = "1fc2e472-0a27-42d7-a2cd-f2c00e79424e";
-    const char* encodedToken = "cDNxUEVBRE5JRzJoUjMweHdtU0EtY1hLRzJKdjFNTHJjTWhwbXhxakd5VQ==";
-    char token[44]; // Base64-encoded strings are always a multiple of 4, so the decoded string will be at most 3/4 the length of the encoded string
-    base64_decode(encodedToken, token);
     String chatId = "home";
-    String postUrl = webhookUrl + id + "/" + token + "/" + chatId + "/post";
+    String postUrl = webhookUrl + id + "/" + decodedToken + "/" + chatId + "/post";
     http.begin(postUrl);
     http.addHeader("Content-Type", "application/json");
     int httpResponseCode = http.POST(requestBody);
@@ -320,7 +330,6 @@ void fetchPosts() {
   }
 }
 
-
 void reconnectWiFi() {
   // Retrieve credentials from preferences
   preferences.begin("wifi", true);
@@ -330,4 +339,86 @@ void reconnectWiFi() {
 
   // Reconnect to WiFi
   WiFi.begin(ssid.c_str(), password.c_str());
+}
+
+void handleRoot() {
+  server.send(200, "application/json", getPostsJson());
+}
+
+void handlePosts() {
+  server.send(200, "application/json", getPostsJson());
+}
+
+void handlePost() {
+  if (server.hasArg("plain")) {
+    String content = server.arg("plain");
+    DynamicJsonDocument json(1024);
+    deserializeJson(json, content);
+    String message = json["message"].as<String>();
+    sendPost(message);
+    server.send(200, "application/json", "{\"success\": true}");
+  } else {
+    server.send(400, "application/json", "{\"error\": \"Message missing in request body\"}");
+  }
+}
+
+String getFormattedDateTime(unsigned long timestamp) {
+  time_t time = (time_t)timestamp;
+  struct tm* timeinfo;
+  char buffer[80];
+
+  timeinfo = localtime(&time);
+  strftime(buffer, sizeof(buffer), "%d/%m/%Y at %I:%M:%S %p", timeinfo);
+
+  return String(buffer);
+}
+
+String getPostsJson() {
+  DynamicJsonDocument doc(8192); // Adjust size for your needs
+  JsonArray postsArray = doc.createNestedArray("posts");
+
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(meowerAPI);
+    int httpCode = http.GET();
+
+    if (httpCode > 0) {
+      String payload = http.getString();
+      // Parse JSON
+      DynamicJsonDocument doc(8192); // Adjust size for your needs
+      deserializeJson(doc, payload);
+      JsonArray posts = doc["autoget"].as<JsonArray>();
+
+      // Add posts to the response JSON
+      for (JsonObject post : posts) {
+        String postId = post["_id"].as<String>();
+        bool isDeleted = post["isDeleted"].as<bool>();
+        String username = post["u"].as<String>();
+        String message = post["p"].as<String>();
+        unsigned long timestamp = post["t"]["e"].as<unsigned long>();
+
+        // Create a JSON object for each post
+        JsonObject postObject = postsArray.createNestedObject();
+        postObject["username"] = username;
+        postObject["message"] = message;
+        postObject["post_id"] = postId;
+        postObject["is_deleted"] = isDeleted;
+        postObject["timestamp"] = timestamp;
+        postObject["formatted_datetime"] = getFormattedDateTime(timestamp);
+      }
+
+    } else {
+      Serial.println("Error on HTTP request");
+    }
+    http.end();
+  } else {
+    Serial.println("WiFi not connected. Reconnecting...");
+    reconnectWiFi();
+  }
+
+  // Serialize the JSON document to a string
+  String response;
+  serializeJson(doc, response);
+
+  return response;
 }
